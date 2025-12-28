@@ -189,6 +189,9 @@ static cfg_opt_t config_opts[] = {
     CFG_BOOL("match_email_addresses", TRUE, CFGF_NONE),
     CFG_BOOL("match_numbers", TRUE, CFGF_NONE),
 
+    /* Whether to automatically copy selected text to clipboard */
+    CFG_BOOL("copy_on_selection", FALSE, CFGF_NONE),
+
     /* if set to TRUE, tilda will fall back to open
      * URIs with the 'web_browser' option. */
     CFG_BOOL("use_custom_web_browser", FALSE, CFGF_NONE),

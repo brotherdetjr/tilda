@@ -53,6 +53,7 @@ static void maximize_window_cb (GtkWidget *widget, gpointer data);
 static void restore_window_cb (GtkWidget *widget, gpointer data);
 static void refresh_window_cb (GtkWidget *widget, gpointer data);
 static void move_window_cb (GtkWidget *widget, guint x, guint y, gpointer data);
+static void selection_changed_cb (VteTerminal *terminal, gpointer data);
 
 static gchar *get_default_command (void);
 gchar *get_working_directory (tilda_term *terminal);
@@ -218,6 +219,8 @@ struct tilda_term_ *tilda_term_init (struct tilda_window_ *tw, gint index)
                       G_CALLBACK(refresh_window_cb), tw->window);
     g_signal_connect (G_OBJECT(term->vte_term), "move-window",
                       G_CALLBACK(move_window_cb), tw->window);
+    g_signal_connect (G_OBJECT(term->vte_term), "selection-changed",
+                      G_CALLBACK(selection_changed_cb), term);
 
     TildaMatchRegistry * registry = tilda_match_registry_new ();
     term->registry = registry;
@@ -903,6 +906,22 @@ static void handle_left_button_click (GtkWidget * window,
                                                    match_entry);
     } else {
         g_debug ("Match activation skipped.");
+    }
+}
+
+static void selection_changed_cb (VteTerminal *terminal, gpointer data)
+{
+    DEBUG_FUNCTION ("selection_changed_cb");
+    DEBUG_ASSERT (terminal != NULL);
+
+    /* Only proceed if copy_on_selection is enabled */
+    if (!config_getbool("copy_on_selection")) {
+        return;
+    }
+
+    /* Only copy if there is an actual selection (not when selection is cleared) */
+    if (vte_terminal_get_has_selection(terminal)) {
+        vte_terminal_copy_clipboard_format(terminal, VTE_FORMAT_TEXT);
     }
 }
 

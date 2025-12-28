@@ -959,7 +959,7 @@
                             <property name="events">GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK</property>
                             <property name="label-xalign">0</property>
                             <child>
-                              <!-- n-columns=2 n-rows=1 -->
+                              <!-- n-columns=2 n-rows=2 -->
                               <object class="GtkGrid" id="grid_select_by_word">
                                 <property name="visible">True</property>
                                 <property name="can-focus">False</property>
@@ -976,7 +976,7 @@
                                     <property name="visible">True</property>
                                     <property name="can-focus">False</property>
                                     <property name="events">GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK</property>
-                                    <property name="label" translatable="yes">Word Characters:</property>
+                                    <property name="label" translatable="yes">Select by Word Characters:</property>
                                     <property name="xalign">1</property>
                                   </object>
                                   <packing>
@@ -995,6 +995,22 @@
                                     <property name="top-attach">0</property>
                                   </packing>
                                 </child>
+                                <child>
+                                  <object class="GtkCheckButton" id="check_copy_on_selection">
+                                    <property name="label" translatable="yes">Copy on Selection</property>
+                                    <property name="visible">True</property>
+                                    <property name="can-focus">True</property>
+                                    <property name="receives-default">False</property>
+                                    <property name="tooltip-text" translatable="yes">Automatically copy selected text to clipboard</property>
+                                    <property name="halign">start</property>
+                                    <property name="draw-indicator">True</property>
+                                  </object>
+                                  <packing>
+                                    <property name="left-attach">0</property>
+                                    <property name="top-attach">1</property>
+                                    <property name="width">2</property>
+                                  </packing>
+                                </child>
                               </object>
                             </child>
                             <child type="label">
@@ -1002,7 +1018,7 @@
                                 <property name="visible">True</property>
                                 <property name="can-focus">False</property>
                                 <property name="events">GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK</property>
-                                <property name="label" translatable="yes">&lt;b&gt;Select by Word&lt;/b&gt;</property>
+                                <property name="label" translatable="yes">&lt;b&gt;Selection&lt;/b&gt;</property>
                                 <property name="use-markup">True</property>
                               </object>
                             </child>

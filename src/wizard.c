@@ -1674,6 +1674,12 @@ static void check_scroll_on_keystroke_toggled_cb (GtkWidget *w, tilda_window *tw
     }
 }
 
+static void check_copy_on_selection_toggled_cb (GtkWidget *w, tilda_window *tw)
+{
+    const gboolean status = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON(w));
+    config_setbool ("copy_on_selection", status);
+}
+
 static void combo_backspace_binding_changed_cb (GtkWidget *w, tilda_window *tw)
 {
     const gint status = gtk_combo_box_get_active (GTK_COMBO_BOX(w));
@@ -1986,6 +1992,7 @@ static void initialize_scrollback_settings(void) {
 
     CHECK_BUTTON ("check_scroll_on_output", "scroll_on_output");
     CHECK_BUTTON ("check_scroll_on_keystroke", "scroll_on_key");
+    CHECK_BUTTON ("check_copy_on_selection", "copy_on_selection");
 }
 
 static void initialize_set_as_desktop_checkbox (void) {
@@ -2109,6 +2116,7 @@ static void connect_wizard_signals (TildaWizard *wizard)
     CONNECT_SIGNAL ("check_infinite_scrollback", "toggled", check_infinite_scrollback_toggled_cb, tw);
     CONNECT_SIGNAL ("check_scroll_on_output","toggled",check_scroll_on_output_toggled_cb, tw);
     CONNECT_SIGNAL ("check_scroll_on_keystroke","toggled",check_scroll_on_keystroke_toggled_cb, tw);
+    CONNECT_SIGNAL ("check_copy_on_selection","toggled",check_copy_on_selection_toggled_cb, tw);
 
     /* Compatibility Tab */
     CONNECT_SIGNAL ("combo_backspace_binding","changed",combo_backspace_binding_changed_cb, tw);

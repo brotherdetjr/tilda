@@ -37,6 +37,8 @@
 
 static tilda_term* tilda_window_get_current_terminal (tilda_window *tw);
 
+static void update_pin_icon_visibility (tilda_window *tw);
+
 static gboolean show_confirmation_dialog (tilda_window *tw,
                                           const char *message);
 
@@ -520,10 +522,9 @@ static gboolean auto_hide_tick(gpointer data)
     return TRUE;
 }
 
-/* Start auto hide tick */
-static void start_auto_hide_tick(tilda_window *tw)
+void tilda_window_start_auto_hide(tilda_window *tw)
 {
-    DEBUG_FUNCTION("start_auto_hide_tick");
+    DEBUG_FUNCTION("tilda_window_start_auto_hide");
     // If the delay is less or equal to 1000ms then the timer is not precise
     // enough, because it takes already about 200ms to register it, so we
     // rather sleep for the given amount of time.
@@ -549,14 +550,30 @@ static void start_auto_hide_tick(tilda_window *tw)
     }
 }
 
-/* Stop auto hide tick */
-static void stop_auto_hide_tick(tilda_window *tw)
+void tilda_window_stop_auto_hide(tilda_window *tw)
 {
     if (tw->auto_hide_tick_handler != 0)
     {
         g_source_remove(tw->auto_hide_tick_handler);
         tw->auto_hide_tick_handler = 0;
     }
+}
+
+static gboolean delayed_auto_hide_cb(gpointer data)
+{
+    DEBUG_FUNCTION("delayed_auto_hide_cb");
+    tilda_window *tw = TILDA_WINDOW(data);
+
+    /* Check again if we should still auto-hide:
+     * - Pin state might have changed
+     * - Window might have regained focus (e.g., after unpinning)
+     */
+    if (tw->auto_hide_on_focus_lost && !tw->is_pinned &&
+        !gtk_window_is_active(GTK_WINDOW(tw->window))) {
+        tilda_window_start_auto_hide(tw);
+    }
+
+    return G_SOURCE_REMOVE;
 }
 
 static gboolean mouse_enter (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, gpointer data)
@@ -566,7 +583,7 @@ static gboolean mouse_enter (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, g
     DEBUG_ASSERT (widget != NULL);
 
     tilda_window *tw = TILDA_WINDOW(data);
-    stop_auto_hide_tick(tw);
+    tilda_window_stop_auto_hide(tw);
 
     return GDK_EVENT_STOP;
 }
@@ -580,10 +597,10 @@ static gboolean mouse_leave (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, g
     GdkEventCrossing *ev = (GdkEventCrossing*)event;
     tilda_window *tw = TILDA_WINDOW(data);
 
-    if ((ev->mode != GDK_CROSSING_NORMAL) || (tw->auto_hide_on_mouse_leave == FALSE))
+    if ((ev->mode != GDK_CROSSING_NORMAL) || (tw->auto_hide_on_mouse_leave == FALSE) || (tw->is_pinned == TRUE))
         return GDK_EVENT_STOP;
 
-    start_auto_hide_tick(tw);
+    tilda_window_start_auto_hide(tw);
 
     return GDK_EVENT_STOP;
 }
@@ -617,10 +634,16 @@ static gboolean focus_out_event_cb (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *e
         tw->focus_loss_on_keypress = FALSE;
     }
 
-    if (tw->auto_hide_on_focus_lost == FALSE)
+    if (tw->auto_hide_on_focus_lost == FALSE || tw->is_pinned == TRUE)
         return GDK_EVENT_PROPAGATE;
 
-    start_auto_hide_tick(tw);
+    /* If focus loss is due to a KeyPress, delay auto-hide to allow keybinding
+     * handlers (like pin toggle) to run and potentially update is_pinned */
+    if (xevent.type == KeyPress) {
+        g_timeout_add(50, delayed_auto_hide_cb, tw);
+    } else {
+        tilda_window_start_auto_hide(tw);
+    }
 
     return GDK_EVENT_PROPAGATE;
 }
@@ -927,7 +950,7 @@ gboolean tilda_window_init (const gchar *config_file, const gint instance, tilda
     tilda_window_set_fullscreen(tw);
 
     /* Set up all window properties */
-    if (config_getbool ("pinned"))
+    if (config_getbool ("display_on_all_workspaces"))
         gtk_window_stick (GTK_WINDOW(tw->window));
 
     if(config_getbool ("set_as_desktop"))
@@ -1018,8 +1041,9 @@ gboolean tilda_window_init (const gchar *config_file, const gint instance, tilda
     g_signal_connect (G_OBJECT (tw->notebook), "switch-page", G_CALLBACK (switch_page_cb), tw);
 
     /* Setup the tilda window. The tilda window consists of a top level window that contains the following widgets:
-     *   * The main_box holds a GtkNotebook with all the terminal tabs
-     *   * The search_box holds the TildaSearchBox widget
+     *   * The main_box holds the pin_panel, notebook, and search_box
+     *   * The pin_panel is a dedicated horizontal bar at the top containing just the pin icon
+     *   * The search_box is at the bottom for search functionality
      */
     GtkWidget *main_box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
     tw->search = tilda_search_box_new ();
@@ -1027,9 +1051,30 @@ gboolean tilda_window_init (const gchar *config_file, const gint instance, tilda
     GtkStyleContext *context = gtk_widget_get_style_context(main_box);
     gtk_style_context_add_class(context, GTK_STYLE_CLASS_BACKGROUND);
 
-    gtk_container_add (GTK_CONTAINER(tw->window), main_box);
+    /* Create dedicated pin panel - a horizontal box at the top */
+    GtkWidget *pin_panel = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
+
+    /* Create pin icon */
+    tw->pin_icon = gtk_label_new ("\xF0\x9F\x93\x8C"); /* 📌 pin emoji */
+    gtk_widget_set_margin_start (tw->pin_icon, 10);
+    gtk_widget_set_margin_end (tw->pin_icon, 10);
+    gtk_widget_set_margin_top (tw->pin_icon, 5);
+    gtk_widget_set_margin_bottom (tw->pin_icon, 5);
+
+    /* Pack pin icon to the right side of pin panel */
+    gtk_box_pack_end (GTK_BOX (pin_panel), tw->pin_icon, FALSE, FALSE, 0);
+
+    /* Initialize pin state */
+    tw->is_pinned = FALSE;
+    gtk_widget_set_visible (tw->pin_icon, FALSE);
+
+    /* Add pin panel, notebook and search to main_box */
+    gtk_box_pack_start (GTK_BOX (main_box), pin_panel, FALSE, FALSE, 0);
     gtk_box_pack_start (GTK_BOX (main_box), tw->notebook, TRUE, TRUE, 0);
     gtk_box_pack_start (GTK_BOX (main_box), tw->search, FALSE, TRUE, 0);
+
+    /* Add main_box directly to window */
+    gtk_container_add (GTK_CONTAINER(tw->window), main_box);
 
     g_signal_connect (tw->search, "search",
                       G_CALLBACK (search_cb), tw);
@@ -1040,6 +1085,7 @@ gboolean tilda_window_init (const gchar *config_file, const gint instance, tilda
     /* Show the widgets */
     gtk_widget_show_all (main_box);
     gtk_widget_set_visible(tw->search, FALSE);
+    gtk_widget_set_visible(tw->pin_icon, FALSE);
     /* the tw->window widget will be shown later, by pull() */
 
     /* Position the window */

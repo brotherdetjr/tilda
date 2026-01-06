@@ -597,7 +597,16 @@ static gboolean mouse_leave (GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, g
     GdkEventCrossing *ev = (GdkEventCrossing*)event;
     tilda_window *tw = TILDA_WINDOW(data);
 
-    if ((ev->mode != GDK_CROSSING_NORMAL) || (tw->auto_hide_on_mouse_leave == FALSE) || (tw->is_pinned == TRUE))
+    /* Don't trigger auto-hide if:
+     * - Crossing mode is not normal (e.g., grab-related)
+     * - Auto-hide on mouse leave is disabled
+     * - Window is pinned
+     * - Mouse moved to a child widget (detail == INFERIOR)
+     */
+    if ((ev->mode != GDK_CROSSING_NORMAL) ||
+        (tw->auto_hide_on_mouse_leave == FALSE) ||
+        (tw->is_pinned == TRUE) ||
+        (ev->detail == GDK_NOTIFY_INFERIOR))
         return GDK_EVENT_STOP;
 
     tilda_window_start_auto_hide(tw);

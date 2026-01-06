@@ -431,6 +431,11 @@ static void onKeybindingPin (G_GNUC_UNUSED const char *keystring, gpointer user_
     DEBUG_FUNCTION("onKeybindingPin");
     tilda_window *tw = TILDA_WINDOW(user_data);
 
+    /* Don't allow pinning/unpinning during animation */
+    if (tw->current_state == STATE_GOING_UP || tw->current_state == STATE_GOING_DOWN) {
+        return;
+    }
+
     /* If window is not visible, bring it to screen first */
     if (tw->current_state == STATE_UP) {
         pull (tw, PULL_DOWN, FALSE);

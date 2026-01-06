@@ -430,6 +430,12 @@ static void onKeybindingPin (G_GNUC_UNUSED const char *keystring, gpointer user_
 {
     DEBUG_FUNCTION("onKeybindingPin");
     tilda_window *tw = TILDA_WINDOW(user_data);
+
+    /* If window is not visible, bring it to screen first */
+    if (tw->current_state == STATE_UP) {
+        pull (tw, PULL_DOWN, FALSE);
+    }
+
     gboolean new_pin_state = !tw->is_pinned;
     set_pinned (new_pin_state, tw);
 
